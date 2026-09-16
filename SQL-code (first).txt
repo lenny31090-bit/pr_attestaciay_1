@@ -1,0 +1,19 @@
+CREATE OR REPLACE VIEW vw_user_churn_features AS
+WITH max_date_cte AS (
+    SELECT MAX(started_at)::date AS max_db_date FROM sessions
+)
+SELECT 
+    u.user_id,
+     (SELECT max_db_date FROM max_date_cte) - MAX(s.started_at)::date AS days_since_last_session,
+    COUNT(DISTINCT s.session_id) AS total_sessions_count,
+    COUNT(DISTINCT o.order_id) AS total_orders_count,
+    CASE 
+        WHEN ((SELECT max_db_date FROM max_date_cte) - MAX(s.started_at)::date) > 30 THEN 1
+        WHEN MAX(s.started_at) IS NULL THEN 1
+        ELSE 0
+    END AS is_churned
+
+FROM users u
+LEFT JOIN sessions s     ON u.user_id = s.user_id
+LEFT JOIN orders o       ON u.user_id = o.user_id
+GROUP BY u.user_id;
